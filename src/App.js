@@ -633,22 +633,32 @@ const BlockBlasterSolver = () => {
                   {move.gridAfterPlace.map((row, rowIdx) => (
                     <div key={rowIdx} className="flex">
                       {row.map((cell, colIdx) => {
+                        // Check if this cell was part of the originally placed figure
                         const wasPlaced = move.figure.some(([dr, dc]) => 
                           move.row + dr === rowIdx && move.col + dc === colIdx
                         );
                         
-                        const willBeCleared = cell && 
+                        // Check if this specific cell will be cleared (part of a completed line)
+                        const willBeCleared = move.gridAfterPlace[rowIdx][colIdx] && 
                                             (move.clearedRows.includes(rowIdx) || 
                                              move.clearedCols.includes(colIdx));
+                        
+                        // Cell is blue if it was part of the placed figure (even if it will be cleared)
+                        // Cell is red if it was already there and not part of placed figure
+                        // Cell is green if empty
+                        const isBlue = wasPlaced;
+                        const isRed = !wasPlaced && cell;
+                        const isGreen = !cell;
                         
                         return (
                           <div
                             key={`${rowIdx}-${colIdx}`}
                             className={`w-12 h-12 border-2 border-white relative ${
-                              wasPlaced ? 'bg-blue-500' : 
-                              cell ? 'bg-red-500' : 'bg-green-500'
+                              isBlue ? 'bg-blue-500' : 
+                              isRed ? 'bg-red-500' : 'bg-green-500'
                             }`}
                           >
+                            {/* Purple circle overlay for cells that will be cleared */}
                             {willBeCleared && (
                               <div className="absolute inset-1 bg-purple-400 rounded-full opacity-70"></div>
                             )}
