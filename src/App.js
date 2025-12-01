@@ -425,25 +425,17 @@ const BlockBlasterSolver = () => {
   };
 
   const continueManually = () => {
-    if (!solution || currentStep >= solution.length) return;
+    if (!solution || solution.length === 0) return;
     
-    // Get the current step's move
-    const currentMove = solution[currentStep];
+    // Apply the FINAL grid state after ALL moves are executed
+    const finalMove = solution[solution.length - 1];
+    const finalGrid = finalMove.gridAfter.map(row => [...row]);
+    setGrid(finalGrid);
     
-    // Apply the grid state AFTER clearing lines
-    const newGrid = currentMove.gridAfter.map(row => [...row]);
-    setGrid(newGrid);
-    
-    // Move to next step
-    const nextStep = currentStep + 1;
-    setCurrentStep(nextStep);
-    
-    // If all steps are complete, clear solution
-    if (nextStep >= solution.length) {
-      setSolution(null);
-      setCurrentStep(0);
-      setSolutionStats(null);
-    }
+    // Clear solution and reset
+    setSolution(null);
+    setCurrentStep(0);
+    setSolutionStats(null);
     
     // Scroll to top of page
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -704,16 +696,19 @@ const BlockBlasterSolver = () => {
 
             {currentStep < solution.length ? (
               <div className="text-center mt-8 p-6 bg-blue-50 rounded-lg border-2 border-blue-300">
-                <p className="text-2xl font-bold mb-6 text-blue-800">Ready for next turn!</p>
+                <p className="text-2xl font-bold mb-6 text-blue-800">Ready to apply all moves!</p>
                 <p className="text-lg mb-6 text-gray-700">
-                  Upload another screenshot or fill manually to continue solving.
+                  Click below to apply ALL {solution.length} moves at once. Your grid will update to the final state after all moves are executed.
                 </p>
                 <button
                   onClick={continueManually}
-                  className="px-8 py-4 bg-green-500 text-white text-xl font-semibold rounded-lg hover:bg-green-600 transition shadow-lg mr-4"
+                  className="px-8 py-4 bg-green-500 text-white text-xl font-semibold rounded-lg hover:bg-green-600 transition shadow-lg"
                 >
-                  Continue Manually
+                  Apply All Moves & Continue
                 </button>
+                <p className="mt-4 text-sm text-gray-600">
+                  💡 This will show you the final grid state. Copy it to your phone and play the moves shown above!
+                </p>
               </div>
             ) : (
               <div className="text-center mt-8 p-6 bg-green-100 rounded-lg border-2 border-green-300">
