@@ -353,8 +353,26 @@ const BlockBlasterSolver = () => {
         const findMoves = (currentGrid, remainingIndices, moves) => {
           if (remainingIndices.length === 0) {
             if (moves.length > 0) {
-              const stats = scoreSolution(moves, strategy);
-              allSolutions.push({ moves: [...moves], stats });
+              // Verify the solution chain is valid
+              let isValid = true;
+              let testGrid = grid.map(row => [...row]);
+              
+              for (const move of moves) {
+                // Check if this move can actually be placed on the test grid
+                if (!canPlaceFigure(testGrid, move.figure, move.row, move.col)) {
+                  isValid = false;
+                  break;
+                }
+                // Apply the move
+                testGrid = placeFigure(testGrid, move.figure, move.row, move.col);
+                const { grid: clearedGrid } = clearCompleteLines(testGrid);
+                testGrid = clearedGrid;
+              }
+              
+              if (isValid) {
+                const stats = scoreSolution(moves, strategy);
+                allSolutions.push({ moves: [...moves], stats });
+              }
             }
             return;
           }
@@ -409,10 +427,19 @@ const BlockBlasterSolver = () => {
   const continueManually = () => {
     if (!solution || currentStep >= solution.length) return;
     
-    setGrid(solution[currentStep].gridAfter.map(row => [...row]));
-    setCurrentStep(currentStep + 1);
+    // Get the current step's move
+    const currentMove = solution[currentStep];
     
-    if (currentStep + 1 >= solution.length) {
+    // Apply the grid state AFTER clearing lines
+    const newGrid = currentMove.gridAfter.map(row => [...row]);
+    setGrid(newGrid);
+    
+    // Move to next step
+    const nextStep = currentStep + 1;
+    setCurrentStep(nextStep);
+    
+    // If all steps are complete, clear solution
+    if (nextStep >= solution.length) {
       setSolution(null);
       setCurrentStep(0);
       setSolutionStats(null);
