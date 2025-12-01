@@ -427,10 +427,19 @@ const BlockBlasterSolver = () => {
   const continueManually = () => {
     if (!solution || solution.length === 0) return;
     
-    // Apply the FINAL grid state after ALL moves are executed
-    const finalMove = solution[solution.length - 1];
-    const finalGrid = finalMove.gridAfter.map(row => [...row]);
-    setGrid(finalGrid);
+    // Apply ALL moves sequentially to get the true final grid state
+    let currentGrid = grid.map(row => [...row]);
+    
+    for (const move of solution) {
+      // Place the figure
+      currentGrid = placeFigure(currentGrid, move.figure, move.row, move.col);
+      // Clear any complete lines
+      const { grid: clearedGrid } = clearCompleteLines(currentGrid);
+      currentGrid = clearedGrid;
+    }
+    
+    // Set the final grid state
+    setGrid(currentGrid);
     
     // Clear solution and reset
     setSolution(null);
