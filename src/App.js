@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Zap, Shield, BarChart3 } from 'lucide-react';
+import { Zap, Shield, BarChart3 } from 'lucide-react';
 
-const GRID_SIZE = 8;
 const FIGURE_SIZE = 5;
 
 const BlockBlasterSolver = () => {
-  const [grid, setGrid] = useState(Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false)));
+  const [gridSize, setGridSize] = useState(8);
+  const [gridSizeInput, setGridSizeInput] = useState('8x8');
+  const [numFigures, setNumFigures] = useState(3);
+  const [grid, setGrid] = useState(Array(8).fill().map(() => Array(8).fill(false)));
   const [figures, setFigures] = useState([
     Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false)),
     Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false)),
@@ -15,18 +17,52 @@ const BlockBlasterSolver = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isCalculating, setIsCalculating] = useState(false);
   const [solutionStats, setSolutionStats] = useState(null);
-  const [strategy, setStrategy] = useState('balanced'); // 'aggressive', 'conservative', 'balanced'
+  const [strategy, setStrategy] = useState('balanced');
   
-  // Mouse drag state for grid
   const [isGridDragging, setIsGridDragging] = useState(false);
   const [gridDragValue, setGridDragValue] = useState(null);
   
-  // Mouse drag state for figures
   const [isFigureDragging, setIsFigureDragging] = useState(false);
   const [figureDragIndex, setFigureDragIndex] = useState(null);
   const [figureDragValue, setFigureDragValue] = useState(null);
 
-  // Keyboard shortcut for solving
+  const handleGridSizeChange = () => {
+    const match = gridSizeInput.match(/^(\d+)x(\d+)$/i);
+    if (match) {
+      const rows = parseInt(match[1]);
+      const cols = parseInt(match[2]);
+      if (rows > 0 && rows <= 20 && cols > 0 && cols <= 20 && rows === cols) {
+        setGridSize(rows);
+        setGrid(Array(rows).fill().map(() => Array(rows).fill(false)));
+        setSolution(null);
+        setCurrentStep(0);
+        setSolutionStats(null);
+      } else {
+        alert('Please enter a square grid size between 1x1 and 20x20');
+      }
+    } else {
+      alert('Please enter grid size in format: NxN (e.g., 8x8, 10x10)');
+    }
+  };
+
+  const handleNumFiguresChange = (num) => {
+    const newNum = Math.max(1, Math.min(5, num));
+    setNumFigures(newNum);
+    
+    const newFigures = [];
+    for (let i = 0; i < newNum; i++) {
+      if (i < figures.length) {
+        newFigures.push(figures[i]);
+      } else {
+        newFigures.push(Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false)));
+      }
+    }
+    setFigures(newFigures);
+    setSolution(null);
+    setCurrentStep(0);
+    setSolutionStats(null);
+  };
+
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.code === 'Space' && !isCalculating) {
@@ -34,12 +70,10 @@ const BlockBlasterSolver = () => {
         solvePuzzle();
       }
     };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isCalculating, grid, figures, strategy]);
+  }, [isCalculating, grid, figures, strategy, gridSize]);
 
-  // Grid drag handlers
   const handleGridMouseDown = (row, col) => {
     setIsGridDragging(true);
     const newValue = !grid[row][col];
@@ -63,7 +97,6 @@ const BlockBlasterSolver = () => {
     setGridDragValue(null);
   };
 
-  // Figure drag handlers
   const handleFigureMouseDown = (figureIndex, row, col) => {
     setIsFigureDragging(true);
     setFigureDragIndex(figureIndex);
@@ -89,13 +122,11 @@ const BlockBlasterSolver = () => {
     setFigureDragValue(null);
   };
 
-  // Add global mouse up listener
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       handleGridMouseUp();
       handleFigureMouseUp();
     };
-
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
@@ -122,13 +153,10 @@ const BlockBlasterSolver = () => {
     const cells = [];
     for (let r = 0; r < FIGURE_SIZE; r++) {
       for (let c = 0; c < FIGURE_SIZE; c++) {
-        if (figure[r][c]) {
-          cells.push([r, c]);
-        }
+        if (figure[r][c]) cells.push([r, c]);
       }
     }
     if (cells.length === 0) return [];
-    
     const minRow = Math.min(...cells.map(c => c[0]));
     const minCol = Math.min(...cells.map(c => c[1]));
     return cells.map(([r, c]) => [r - minRow, c - minCol]);
@@ -138,9 +166,7 @@ const BlockBlasterSolver = () => {
     for (const [dr, dc] of figure) {
       const r = startRow + dr;
       const c = startCol + dc;
-      if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE || grid[r][c]) {
-        return false;
-      }
+      if (r < 0 || r >= gridSize || c < 0 || c >= gridSize || grid[r][c]) return false;
     }
     return true;
   };
@@ -158,23 +184,15 @@ const BlockBlasterSolver = () => {
     const clearedRows = new Set();
     const clearedCols = new Set();
     
-    for (let r = 0; r < GRID_SIZE; r++) {
-      if (newGrid[r].every(cell => cell)) {
-        clearedRows.add(r);
-      }
+    for (let r = 0; r < gridSize; r++) {
+      if (newGrid[r].every(cell => cell)) clearedRows.add(r);
     }
-    
-    for (let c = 0; c < GRID_SIZE; c++) {
-      if (newGrid.every(row => row[c])) {
-        clearedCols.add(c);
-      }
+    for (let c = 0; c < gridSize; c++) {
+      if (newGrid.every(row => row[c])) clearedCols.add(c);
     }
-    
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
-        if (clearedRows.has(r) || clearedCols.has(c)) {
-          newGrid[r][c] = false;
-        }
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
+        if (clearedRows.has(r) || clearedCols.has(c)) newGrid[r][c] = false;
       }
     }
     
@@ -188,143 +206,75 @@ const BlockBlasterSolver = () => {
 
   const scoreBoard = (grid, strategyType) => {
     let score = 0;
-    
     const filledCells = grid.flat().filter(cell => cell).length;
+    let emptyRows = 0, emptyCols = 0;
     
-    let emptyRows = 0;
-    let emptyCols = 0;
-    
-    for (let r = 0; r < GRID_SIZE; r++) {
+    for (let r = 0; r < gridSize; r++) {
       if (grid[r].every(cell => !cell)) emptyRows++;
     }
-    
-    for (let c = 0; c < GRID_SIZE; c++) {
+    for (let c = 0; c < gridSize; c++) {
       if (grid.every(row => !row[c])) emptyCols++;
     }
     
     let fragmentationPenalty = 0;
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
         if (grid[r][c]) {
           let neighbors = 0;
           if (r > 0 && grid[r-1][c]) neighbors++;
-          if (r < GRID_SIZE-1 && grid[r+1][c]) neighbors++;
+          if (r < gridSize-1 && grid[r+1][c]) neighbors++;
           if (c > 0 && grid[r][c-1]) neighbors++;
-          if (c < GRID_SIZE-1 && grid[r][c+1]) neighbors++;
-          
+          if (c < gridSize-1 && grid[r][c+1]) neighbors++;
           if (neighbors === 0) fragmentationPenalty += 5;
           else if (neighbors === 1) fragmentationPenalty += 2;
         }
       }
     }
     
-    let maxConsecutiveInRow = 0;
-    let maxConsecutiveInCol = 0;
-    
-    for (let r = 0; r < GRID_SIZE; r++) {
-      let consecutive = 0;
-      for (let c = 0; c < GRID_SIZE; c++) {
-        if (grid[r][c]) consecutive++;
-        else {
-          maxConsecutiveInRow = Math.max(maxConsecutiveInRow, consecutive);
-          consecutive = 0;
-        }
-      }
-      maxConsecutiveInRow = Math.max(maxConsecutiveInRow, consecutive);
-    }
-    
-    for (let c = 0; c < GRID_SIZE; c++) {
-      let consecutive = 0;
-      for (let r = 0; r < GRID_SIZE; r++) {
-        if (grid[r][c]) consecutive++;
-        else {
-          maxConsecutiveInCol = Math.max(maxConsecutiveInCol, consecutive);
-          consecutive = 0;
-        }
-      }
-      maxConsecutiveInCol = Math.max(maxConsecutiveInCol, consecutive);
-    }
-    
-    // Strategy-based scoring weights
     if (strategyType === 'aggressive') {
-      // Aggressive: Focus on clearing lines NOW, less concern about board state
-      score -= filledCells * 1; // Less penalty for filled cells
-      score += emptyRows * 10;
-      score += emptyCols * 10;
-      score -= fragmentationPenalty * 0.5; // Less concern about fragmentation
-      score += maxConsecutiveInRow * 5; // More reward for consecutive blocks
-      score += maxConsecutiveInCol * 5;
+      score = -filledCells + emptyRows * 10 + emptyCols * 10 - fragmentationPenalty * 0.5;
     } else if (strategyType === 'conservative') {
-      // Conservative: Prioritize clean board and safety
-      score -= filledCells * 4; // Heavy penalty for filled cells
-      score += emptyRows * 25; // High reward for empty rows
-      score += emptyCols * 25; // High reward for empty columns
-      score -= fragmentationPenalty * 3; // Heavy penalty for fragmentation
-      score += maxConsecutiveInRow * 2;
-      score += maxConsecutiveInCol * 2;
-    } else { // balanced
-      score -= filledCells * 2;
-      score += emptyRows * 15;
-      score += emptyCols * 15;
-      score -= fragmentationPenalty;
-      score += maxConsecutiveInRow * 3;
-      score += maxConsecutiveInCol * 3;
+      score = -filledCells * 4 + emptyRows * 25 + emptyCols * 25 - fragmentationPenalty * 3;
+    } else {
+      score = -filledCells * 2 + emptyRows * 15 + emptyCols * 15 - fragmentationPenalty;
     }
-    
     return score;
   };
 
   const scoreSolution = (moves, strategyType) => {
     let totalScore = 0;
     let totalLinesCleared = 0;
-    let finalBoardScore = 0;
     
     moves.forEach((move, idx) => {
       totalLinesCleared += move.linesCleared;
-      
-      // Strategy-based line clearing rewards
       if (strategyType === 'aggressive') {
-        totalScore += move.linesCleared * 150; // Higher immediate reward
-        // Big bonus for clearing lines early
-        totalScore += (moves.length - idx) * 20;
+        totalScore += move.linesCleared * 150 + (moves.length - idx) * 20;
       } else if (strategyType === 'conservative') {
-        totalScore += move.linesCleared * 80; // Lower immediate reward
-        // Smaller bonus for early clears
-        totalScore += (moves.length - idx) * 5;
-      } else { // balanced
-        totalScore += move.linesCleared * 100;
-        totalScore += (moves.length - idx) * 10;
+        totalScore += move.linesCleared * 80 + (moves.length - idx) * 5;
+      } else {
+        totalScore += move.linesCleared * 100 + (moves.length - idx) * 10;
       }
     });
     
     if (moves.length > 0) {
       const finalGrid = moves[moves.length - 1].gridAfter;
-      finalBoardScore = scoreBoard(finalGrid, strategyType);
-      
-      // Strategy-based final board weight
-      if (strategyType === 'aggressive') {
-        totalScore += finalBoardScore * 0.5; // Less weight on final board
-      } else if (strategyType === 'conservative') {
-        totalScore += finalBoardScore * 2; // Heavy weight on final board
-      } else { // balanced
-        totalScore += finalBoardScore;
-      }
+      const finalBoardScore = scoreBoard(finalGrid, strategyType);
+      if (strategyType === 'aggressive') totalScore += finalBoardScore * 0.5;
+      else if (strategyType === 'conservative') totalScore += finalBoardScore * 2;
+      else totalScore += finalBoardScore;
     }
     
     return {
       totalScore,
       totalLinesCleared,
-      finalBoardScore,
       avgLinesPerMove: totalLinesCleared / moves.length
     };
   };
 
-  const solvePuzzle = async () => {
+  const solvePuzzle = () => {
     setIsCalculating(true);
-    
     setTimeout(() => {
       const figureShapes = figures.map(extractFigureShape).filter(f => f.length > 0);
-      
       if (figureShapes.length === 0) {
         alert('Please add at least one figure');
         setIsCalculating(false);
@@ -332,7 +282,6 @@ const BlockBlasterSolver = () => {
       }
 
       const allSolutions = [];
-      
       const permutations = [];
       const generatePermutations = (arr, current = []) => {
         if (current.length === arr.length) {
@@ -353,26 +302,8 @@ const BlockBlasterSolver = () => {
         const findMoves = (currentGrid, remainingIndices, moves) => {
           if (remainingIndices.length === 0) {
             if (moves.length > 0) {
-              // Verify the solution chain is valid
-              let isValid = true;
-              let testGrid = grid.map(row => [...row]);
-              
-              for (const move of moves) {
-                // Check if this move can actually be placed on the test grid
-                if (!canPlaceFigure(testGrid, move.figure, move.row, move.col)) {
-                  isValid = false;
-                  break;
-                }
-                // Apply the move
-                testGrid = placeFigure(testGrid, move.figure, move.row, move.col);
-                const { grid: clearedGrid } = clearCompleteLines(testGrid);
-                testGrid = clearedGrid;
-              }
-              
-              if (isValid) {
-                const stats = scoreSolution(moves, strategy);
-                allSolutions.push({ moves: [...moves], stats });
-              }
+              const stats = scoreSolution(moves, strategy);
+              allSolutions.push({ moves: [...moves], stats });
             }
             return;
           }
@@ -381,15 +312,15 @@ const BlockBlasterSolver = () => {
           const figure = figureShapes[perm[figIdx]];
           const originalFigureIdx = perm[figIdx];
           
-          for (let r = 0; r < GRID_SIZE; r++) {
-            for (let c = 0; c < GRID_SIZE; c++) {
+          for (let r = 0; r < gridSize; r++) {
+            for (let c = 0; c < gridSize; c++) {
               if (canPlaceFigure(currentGrid, figure, r, c)) {
                 const gridAfterPlace = placeFigure(currentGrid, figure, r, c);
                 const { grid: gridAfterClear, linesCleared, clearedRows, clearedCols } = clearCompleteLines(gridAfterPlace);
                 
                 const move = {
                   figureIndex: originalFigureIdx,
-                  figure: figure,
+                  figure,
                   row: r,
                   col: c,
                   gridBefore: currentGrid.map(row => [...row]),
@@ -405,288 +336,245 @@ const BlockBlasterSolver = () => {
             }
           }
         };
-
         findMoves(grid, perm.map((_, i) => i), []);
       }
 
       if (allSolutions.length > 0) {
         allSolutions.sort((a, b) => b.stats.totalScore - a.stats.totalScore);
-        
-        const bestSolution = allSolutions[0];
-        setSolution(bestSolution.moves);
-        setSolutionStats(bestSolution.stats);
+        setSolution(allSolutions[0].moves);
+        setSolutionStats(allSolutions[0].stats);
         setCurrentStep(0);
       } else {
-        alert('No solution found for the current configuration');
+        alert('No solution found');
       }
-      
       setIsCalculating(false);
     }, 100);
   };
 
   const continueManually = () => {
     if (!solution || solution.length === 0) return;
-    
-    // Apply ALL moves sequentially to get the true final grid state
     let currentGrid = grid.map(row => [...row]);
-    
     for (const move of solution) {
-      // Place the figure
       currentGrid = placeFigure(currentGrid, move.figure, move.row, move.col);
-      // Clear any complete lines
       const { grid: clearedGrid } = clearCompleteLines(currentGrid);
       currentGrid = clearedGrid;
     }
-    
-    // Set the final grid state
     setGrid(currentGrid);
     
-    // Clear solution and reset
+    // Reset all figures that were used in the solution
+    const newFigures = figures.map((figure, idx) => {
+      // Check if this figure was used in the solution
+      const wasUsed = solution.some(move => move.figureIndex === idx);
+      if (wasUsed) {
+        // Reset this figure to empty
+        return Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false));
+      }
+      // Keep unused figures as they are
+      return figure;
+    });
+    setFigures(newFigures);
+    
     setSolution(null);
     setCurrentStep(0);
     setSolutionStats(null);
-    
-    // Scroll to top of page
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetGrid = () => {
-    setGrid(Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false)));
+    setGrid(Array(gridSize).fill().map(() => Array(gridSize).fill(false)));
     setSolution(null);
     setCurrentStep(0);
     setSolutionStats(null);
   };
 
   const resetFigures = () => {
-    setFigures([
-      Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false)),
-      Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false)),
-      Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false))
-    ]);
+    const newFigures = [];
+    for (let i = 0; i < numFigures; i++) {
+      newFigures.push(Array(FIGURE_SIZE).fill().map(() => Array(FIGURE_SIZE).fill(false)));
+    }
+    setFigures(newFigures);
     setSolution(null);
     setCurrentStep(0);
     setSolutionStats(null);
   };
+
+  const cellSize = gridSize <= 8 ? 'w-12 h-12' : gridSize <= 12 ? 'w-10 h-10' : 'w-8 h-8';
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">Block Blaster Solver</h1>
         
-        {/* Strategy Selector */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">Strategy Mode</h2>
+          <h2 className="text-xl font-semibold mb-4 text-gray-800">Grid Configuration</h2>
+          <div className="flex flex-wrap items-center gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Grid Size</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={gridSizeInput}
+                  onChange={(e) => setGridSizeInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleGridSizeChange()}
+                  placeholder="8x8"
+                  className="px-4 py-2 border-2 border-gray-300 rounded w-32"
+                />
+                <button onClick={handleGridSizeChange} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                  Apply
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Figures (1-5)</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleNumFiguresChange(numFigures - 1)}
+                  disabled={numFigures <= 1}
+                  className="px-3 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50"
+                >
+                  -
+                </button>
+                <span className="px-4 py-2 bg-gray-100 rounded font-semibold">{numFigures}</span>
+                <button
+                  onClick={() => handleNumFiguresChange(numFigures + 1)}
+                  disabled={numFigures >= 5}
+                  className="px-3 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Strategy Mode</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() => setStrategy('aggressive')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                strategy === 'aggressive'
-                  ? 'border-red-500 bg-red-50 shadow-lg'
-                  : 'border-gray-200 hover:border-red-300'
-              }`}
-            >
-              <div className="flex items-center justify-center mb-2">
-                <Zap className={`w-6 h-6 ${strategy === 'aggressive' ? 'text-red-500' : 'text-gray-400'}`} />
-              </div>
-              <h3 className="font-bold text-lg mb-1">Aggressive</h3>
-              <p className="text-sm text-gray-600">Maximize points NOW. Focus on clearing as many lines as possible immediately.</p>
-            </button>
-            
-            <button
-              onClick={() => setStrategy('balanced')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                strategy === 'balanced'
-                  ? 'border-blue-500 bg-blue-50 shadow-lg'
-                  : 'border-gray-200 hover:border-blue-300'
-              }`}
-            >
-              <div className="flex items-center justify-center mb-2">
-                <BarChart3 className={`w-6 h-6 ${strategy === 'balanced' ? 'text-blue-500' : 'text-gray-400'}`} />
-              </div>
-              <h3 className="font-bold text-lg mb-1">Balanced</h3>
-              <p className="text-sm text-gray-600">Mix of both strategies. Balance immediate points with board safety.</p>
-            </button>
-            
-            <button
-              onClick={() => setStrategy('conservative')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                strategy === 'conservative'
-                  ? 'border-green-500 bg-green-50 shadow-lg'
-                  : 'border-gray-200 hover:border-green-300'
-              }`}
-            >
-              <div className="flex items-center justify-center mb-2">
-                <Shield className={`w-6 h-6 ${strategy === 'conservative' ? 'text-green-500' : 'text-gray-400'}`} />
-              </div>
-              <h3 className="font-bold text-lg mb-1">Conservative</h3>
-              <p className="text-sm text-gray-600">Prioritize board safety. Keep the board as clean and organized as possible.</p>
-            </button>
+            {['aggressive', 'balanced', 'conservative'].map(strat => (
+              <button
+                key={strat}
+                onClick={() => setStrategy(strat)}
+                className={`p-4 rounded-lg border-2 ${strategy === strat ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+              >
+                <h3 className="font-bold text-lg capitalize">{strat}</h3>
+              </button>
+            ))}
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Grid Input */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold text-gray-800">Grid Input</h2>
-              <button
-                onClick={resetGrid}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
-              >
-                Reset Grid
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 mb-3">Click or drag to fill squares</p>
-            <div className="inline-block border-4 border-gray-300 rounded select-none">
-              {grid.map((row, rowIdx) => (
-                <div key={rowIdx} className="flex">
-                  {row.map((cell, colIdx) => (
-                    <div
-                      key={`${rowIdx}-${colIdx}`}
-                      onMouseDown={() => handleGridMouseDown(rowIdx, colIdx)}
-                      onMouseEnter={() => handleGridMouseEnter(rowIdx, colIdx)}
-                      className={`w-12 h-12 border border-white transition-colors cursor-pointer ${
-                        cell ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-                      }`}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold">Grid Input</h2>
+            <button onClick={resetGrid} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+              Reset
+            </button>
           </div>
-
-          {/* Figures Input */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold text-gray-800">Figures Input</h2>
-              <button
-                onClick={resetFigures}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
-              >
-                Reset Figures
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 mb-3">Click or drag to create shapes</p>
-            <div className="grid grid-cols-3 gap-4">
-              {figures.map((figure, figIdx) => (
-                <div key={figIdx}>
-                  <h3 className="text-lg font-medium mb-2 text-gray-700">Figure {figIdx + 1}</h3>
-                  <div className="inline-block border-2 border-gray-300 rounded select-none">
-                    {figure.map((row, rowIdx) => (
-                      <div key={rowIdx} className="flex">
-                        {row.map((cell, colIdx) => (
-                          <div
-                            key={`${figIdx}-${rowIdx}-${colIdx}`}
-                            onMouseDown={() => handleFigureMouseDown(figIdx, rowIdx, colIdx)}
-                            onMouseEnter={() => handleFigureMouseEnter(figIdx, rowIdx, colIdx)}
-                            className={`w-8 h-8 border border-white transition-colors cursor-pointer ${
-                              cell ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-200 hover:bg-gray-300'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="inline-block border-4 border-gray-300 rounded select-none">
+            {grid.map((row, rowIdx) => (
+              <div key={rowIdx} className="flex">
+                {row.map((cell, colIdx) => (
+                  <div
+                    key={`${rowIdx}-${colIdx}`}
+                    onMouseDown={() => handleGridMouseDown(rowIdx, colIdx)}
+                    onMouseEnter={() => handleGridMouseEnter(rowIdx, colIdx)}
+                    className={`${cellSize} border border-white cursor-pointer ${
+                      cell ? 'bg-red-500' : 'bg-green-500'
+                    }`}
+                  />
+                ))}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Solve Button */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold">Figures</h2>
+            <button onClick={resetFigures} className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+              Reset
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {figures.map((figure, figIdx) => (
+              <div key={figIdx}>
+                <h3 className="text-lg font-medium mb-2">Figure {figIdx + 1}</h3>
+                <div className="inline-block border-2 border-gray-300 rounded select-none">
+                  {figure.map((row, rowIdx) => (
+                    <div key={rowIdx} className="flex">
+                      {row.map((cell, colIdx) => (
+                        <div
+                          key={`${figIdx}-${rowIdx}-${colIdx}`}
+                          onMouseDown={() => handleFigureMouseDown(figIdx, rowIdx, colIdx)}
+                          onMouseEnter={() => handleFigureMouseEnter(figIdx, rowIdx, colIdx)}
+                          className={`w-8 h-8 border border-white cursor-pointer ${
+                            cell ? 'bg-blue-500' : 'bg-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="text-center mb-8">
           <button
             onClick={solvePuzzle}
             disabled={isCalculating}
-            className={`px-8 py-4 text-white text-xl font-semibold rounded-lg transition shadow-lg ${
-              isCalculating 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-green-500 hover:bg-green-600'
+            className={`px-8 py-4 text-white text-xl font-semibold rounded-lg shadow-lg ${
+              isCalculating ? 'bg-gray-400' : 'bg-green-500 hover:bg-green-600'
             }`}
           >
-            {isCalculating ? 'Calculating Best Move...' : 'Solve Manual Input'}
+            {isCalculating ? 'Calculating...' : 'Solve'}
           </button>
-          <p className="mt-3 text-sm text-gray-600">
-            💡 Tip: Press <kbd className="px-2 py-1 bg-gray-200 rounded border border-gray-300">Space</kbd> to solve quickly!
-          </p>
-          {isCalculating && (
-            <p className="mt-3 text-gray-600">Analyzing all possible combinations for optimal {strategy} solution...</p>
-          )}
+          <p className="mt-3 text-sm text-gray-600">Press <kbd className="px-2 py-1 bg-gray-200 rounded">Space</kbd> to solve</p>
         </div>
 
-        {/* Solution Stats */}
         {solutionStats && (
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg shadow-lg p-6 mb-8 border-2 border-green-300">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">
-              🏆 Optimal {strategy.charAt(0).toUpperCase() + strategy.slice(1)} Solution Found!
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg p-4 shadow">
-                <p className="text-sm text-gray-600">Total Score</p>
-                <p className="text-3xl font-bold text-green-600">{solutionStats.totalScore}</p>
+          <div className="bg-green-50 rounded-lg p-6 mb-8 border-2 border-green-300">
+            <h2 className="text-2xl font-bold mb-4">🏆 Solution Found!</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white rounded p-4">
+                <p className="text-sm text-gray-600">Score</p>
+                <p className="text-3xl font-bold text-green-600">{Math.round(solutionStats.totalScore)}</p>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow">
-                <p className="text-sm text-gray-600">Lines Cleared</p>
+              <div className="bg-white rounded p-4">
+                <p className="text-sm text-gray-600">Lines</p>
                 <p className="text-3xl font-bold text-blue-600">{solutionStats.totalLinesCleared}</p>
               </div>
-              <div className="bg-white rounded-lg p-4 shadow">
-                <p className="text-sm text-gray-600">Board Cleanliness</p>
-                <p className="text-3xl font-bold text-purple-600">{solutionStats.finalBoardScore}</p>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow">
+              <div className="bg-white rounded p-4">
                 <p className="text-sm text-gray-600">Efficiency</p>
                 <p className="text-3xl font-bold text-orange-600">{solutionStats.avgLinesPerMove.toFixed(1)}</p>
               </div>
             </div>
-            <p className="mt-4 text-sm text-gray-700">
-              {strategy === 'aggressive' && '⚡ Aggressive mode: Maximizing immediate line clears and points!'}
-              {strategy === 'balanced' && '⚖️ Balanced mode: Optimizing both immediate points and board safety!'}
-              {strategy === 'conservative' && '🛡️ Conservative mode: Prioritizing board cleanliness and future move potential!'}
-            </p>
           </div>
         )}
 
-        {/* Solution Display */}
         {solution && solution.length > 0 && (
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-800">Step-by-Step Solution</h2>
-            
+            <h2 className="text-2xl font-semibold mb-6">Steps</h2>
             {solution.map((move, idx) => (
-              <div key={idx} className="mb-8 p-6 bg-white border-2 border-gray-200 rounded-lg">
-                <h3 className="text-2xl font-bold mb-4 text-gray-800">
-                  Step {idx + 1}
-                </h3>
-                
+              <div key={idx} className="mb-8 p-6 border-2 border-gray-200 rounded-lg">
+                <h3 className="text-2xl font-bold mb-4">Step {idx + 1}</h3>
                 <div className="inline-block border-4 border-gray-400 rounded-lg overflow-hidden">
                   {move.gridAfterPlace.map((row, rowIdx) => (
                     <div key={rowIdx} className="flex">
                       {row.map((cell, colIdx) => {
-                        // Check if this cell was part of the originally placed figure
                         const wasPlaced = move.figure.some(([dr, dc]) => 
                           move.row + dr === rowIdx && move.col + dc === colIdx
                         );
-                        
-                        // Check if this specific cell will be cleared (part of a completed line)
                         const willBeCleared = move.gridAfterPlace[rowIdx][colIdx] && 
-                                            (move.clearedRows.includes(rowIdx) || 
-                                             move.clearedCols.includes(colIdx));
-                        
-                        // Cell is blue if it was part of the placed figure (even if it will be cleared)
-                        // Cell is red if it was already there and not part of placed figure
-                        // Cell is green if empty
-                        const isBlue = wasPlaced;
-                        const isRed = !wasPlaced && cell;
-                        const isGreen = !cell;
+                          (move.clearedRows.includes(rowIdx) || move.clearedCols.includes(colIdx));
                         
                         return (
                           <div
                             key={`${rowIdx}-${colIdx}`}
-                            className={`w-12 h-12 border-2 border-white relative ${
-                              isBlue ? 'bg-blue-500' : 
-                              isRed ? 'bg-red-500' : 'bg-green-500'
+                            className={`${cellSize} border-2 border-white relative ${
+                              wasPlaced ? 'bg-blue-500' : cell ? 'bg-red-500' : 'bg-green-500'
                             }`}
                           >
-                            {/* Purple circle overlay for cells that will be cleared */}
                             {willBeCleared && (
                               <div className="absolute inset-1 bg-purple-400 rounded-full opacity-70"></div>
                             )}
@@ -696,34 +584,21 @@ const BlockBlasterSolver = () => {
                     </div>
                   ))}
                 </div>
-                
-                <p className="mt-4 text-lg text-gray-700">
+                <p className="mt-4 text-lg">
                   <span className="font-semibold">Completed lines: {move.linesCleared}</span>
                 </p>
               </div>
             ))}
 
-            {currentStep < solution.length ? (
-              <div className="text-center mt-8 p-6 bg-blue-50 rounded-lg border-2 border-blue-300">
-                <p className="text-2xl font-bold mb-6 text-blue-800">Ready to apply all moves!</p>
-                <p className="text-lg mb-6 text-gray-700">
-                  Click below to apply ALL {solution.length} moves at once. Your grid will update to the final state after all moves are executed.
-                </p>
-                <button
-                  onClick={continueManually}
-                  className="px-8 py-4 bg-green-500 text-white text-xl font-semibold rounded-lg hover:bg-green-600 transition shadow-lg"
-                >
-                  Apply All Moves & Continue
-                </button>
-                <p className="mt-4 text-sm text-gray-600">
-                  💡 This will show you the final grid state. Copy it to your phone and play the moves shown above!
-                </p>
-              </div>
-            ) : (
-              <div className="text-center mt-8 p-6 bg-green-100 rounded-lg border-2 border-green-300">
-                <p className="text-2xl font-bold text-green-800">All moves completed! 🎉</p>
-              </div>
-            )}
+            <div className="text-center mt-8 p-6 bg-blue-50 rounded-lg border-2 border-blue-300">
+              <p className="text-2xl font-bold mb-6">Apply all moves!</p>
+              <button
+                onClick={continueManually}
+                className="px-8 py-4 bg-green-500 text-white text-xl font-semibold rounded-lg hover:bg-green-600"
+              >
+                Apply All Moves & Continue
+              </button>
+            </div>
           </div>
         )}
       </div>
