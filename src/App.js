@@ -281,36 +281,24 @@ const BlockBlasterSolver = () => {
         return;
       }
 
-      const allSolutions = [];
-      const permutations = [];
-      const generatePermutations = (arr, current = []) => {
-        if (current.length === arr.length) {
-          permutations.push([...current]);
+      let bestSolution = null;
+      let bestScore = -Infinity;
+
+      const findMoves = (currentGrid, remainingFigures, usedIndices, moves) => {
+        if (remainingFigures.length === 0) {
+          if (moves.length > 0) {
+            const stats = scoreSolution(moves, strategy);
+            if (stats.totalScore > bestScore) {
+              bestScore = stats.totalScore;
+              bestSolution = { moves: [...moves], stats };
+            }
+          }
           return;
         }
-        for (let i = 0; i < arr.length; i++) {
-          if (!current.includes(i)) {
-            current.push(i);
-            generatePermutations(arr, current);
-            current.pop();
-          }
-        }
-      };
-      generatePermutations(figureShapes);
 
-      for (const perm of permutations) {
-        const findMoves = (currentGrid, remainingIndices, moves) => {
-          if (remainingIndices.length === 0) {
-            if (moves.length > 0) {
-              const stats = scoreSolution(moves, strategy);
-              allSolutions.push({ moves: [...moves], stats });
-            }
-            return;
-          }
-
-          const figIdx = remainingIndices[0];
-          const figure = figureShapes[perm[figIdx]];
-          const originalFigureIdx = perm[figIdx];
+        for (let figIdx = 0; figIdx < remainingFigures.length; figIdx++) {
+          const figure = remainingFigures[figIdx];
+          const originalFigureIdx = usedIndices[figIdx];
           
           for (let r = 0; r < gridSize; r++) {
             for (let c = 0; c < gridSize; c++) {
@@ -331,24 +319,28 @@ const BlockBlasterSolver = () => {
                   clearedCols
                 };
                 
-                findMoves(gridAfterClear, remainingIndices.slice(1), [...moves, move]);
+                const newRemaining = remainingFigures.filter((_, i) => i !== figIdx);
+                const newUsedIndices = usedIndices.filter((_, i) => i !== figIdx);
+                
+                findMoves(gridAfterClear, newRemaining, newUsedIndices, [...moves, move]);
               }
             }
           }
-        };
-        findMoves(grid, perm.map((_, i) => i), []);
-      }
+        }
+      };
 
-      if (allSolutions.length > 0) {
-        allSolutions.sort((a, b) => b.stats.totalScore - a.stats.totalScore);
-        setSolution(allSolutions[0].moves);
-        setSolutionStats(allSolutions[0].stats);
+      const figureIndices = figureShapes.map((_, i) => i);
+      findMoves(grid, figureShapes, figureIndices, []);
+
+      if (bestSolution) {
+        setSolution(bestSolution.moves);
+        setSolutionStats(bestSolution.stats);
         setCurrentStep(0);
       } else {
         alert('No solution found');
       }
       setIsCalculating(false);
-    }, 100);
+    }, 50);
   };
 
   const continueManually = () => {
