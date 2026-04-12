@@ -1,5 +1,5 @@
 {
-  "name": "block-blaster-prediction-engine",
+  "name": "block-blast-engine",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
